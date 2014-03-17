@@ -1,5 +1,5 @@
 '2' -> PINDATA ledchain(LedChainWS)
-'3' -> PINCLK ledchain(LedChainWS)
+'3' -> PINCLK ledchain
 '30' -> PIXELS ledchain
 '[29, "0xFF00FF"]' -> IN ledchain
 'true' -> SHOW ledchain
