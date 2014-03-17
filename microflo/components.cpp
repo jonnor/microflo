@@ -18,6 +18,9 @@
 #ifdef HAVE_ADAFRUIT_NEOPIXEL
 #include <Adafruit_NeoPixel.h>
 #endif
+#ifdef HAVE_ADAFRUIT_WS2801
+#include <Adafruit_WS2801.h>
+#endif
 
 #ifdef HOST_BUILD
 #include <stdio.h>
@@ -1071,9 +1074,9 @@ private:
 
 
 
-class LedChainWS : public Component {
+class LedChainNeoPixel : public Component {
 public:
-    LedChainWS()
+    LedChainNeoPixel()
         : Component(outPorts, 2)
         , pin(-1)
         , number(-1)
@@ -1085,7 +1088,7 @@ public:
     {}
 
     virtual void process(Packet in, MicroFlo::PortId port) {
-        using namespace LedChainWSPorts;
+        using namespace LedChainNeoPixelPorts;
         if (port == InPorts::in) {
             if (currentPixelAddress == -1 && in.isNumber()) {
                 currentPixelAddress = in.asInteger();
@@ -1100,12 +1103,12 @@ public:
         } else if (port == InPorts::pin) {
             pin = in.asInteger();
             initialized = false;
-            send(Packet(initialized), LedChainWSPorts::OutPorts::ready);
+            send(Packet(initialized), OutPorts::ready);
             tryInitialize();
         } else if (port == InPorts::pixels) {
             number = in.asInteger();
             initialized = false;
-            send(Packet(initialized), LedChainWSPorts::OutPorts::ready);
+            send(Packet(initialized), OutPorts::ready);
             tryInitialize();
         } else if (port == InPorts::show) {
             if (initialized) {
@@ -1117,6 +1120,8 @@ public:
     }
 private:
     void tryInitialize() {
+        using namespace LedChainNeoPixelPorts;
+
         if (initialized || number < 0 || pin < 0) {
             return;
         }
@@ -1126,10 +1131,11 @@ private:
         neoPixel.begin();
 #endif
         initialized = true;
-        send(Packet(initialized), LedChainWSPorts::OutPorts::ready);
+        send(Packet(initialized), OutPorts::ready);
     }
 
     void updateCurrentPixel(uint32_t rgb) {
+        using namespace LedChainNeoPixelPorts;
         if (!initialized || currentPixelAddress <= 0
                 || currentPixelAddress >= number) {
             return;
@@ -1137,7 +1143,7 @@ private:
 #ifdef HAVE_ADAFRUIT_NEOPIXEL
         neoPixel.setPixelColor(currentPixelAddress, rgb);
 #endif
-        const MicroFlo::PortId p = LedChainWSPorts::OutPorts::pixelset;
+        const MicroFlo::PortId p = OutPorts::pixelset;
         send(Packet(MsgBracketStart), p);
         send(Packet((long)currentPixelAddress));
         send(Packet((long)rgb));
@@ -1155,6 +1161,100 @@ private:
 #endif
 };
 
+
+
+
+class LedChainWS : public Component {
+public:
+    LedChainWS()
+        : Component(outPorts, 2)
+        , pindata(-1)
+        , pinclk(-1)
+        , number(-1)
+        , initialized(false)
+        , currentPixelAddress(-1)
+#ifdef HAVE_ADAFRUIT_WS2801
+        , ws(0, 2, 3) // N,DPIN,CLKPIN. We update these things later
+#endif
+    {}
+
+    virtual void process(Packet in, MicroFlo::PortId port) {
+        using namespace LedChainWSPorts;
+        if (port == InPorts::in) {
+            if (currentPixelAddress == -1 && in.isNumber()) {
+                currentPixelAddress = in.asInteger();
+            } else if (currentPixelAddress != -1 && in.isInteger()) {
+                updateCurrentPixel((uint32_t)in.asInteger());
+                currentPixelAddress = -1;
+            } else if (in.isEndBracket() || in.isStartBracket()) {
+                // To recover in case someone sent us non-grouped
+                // data which got us into a bogus state
+                currentPixelAddress = -1;
+            }
+        } else if (port == InPorts::pindata) {
+            pindata = in.asInteger();
+            initialized = false;
+            send(Packet(initialized), OutPorts::ready);
+        } else if (port == InPorts::pinclk) {
+            pinclk = in.asInteger();
+            initialized = false;
+            send(Packet(initialized), OutPorts::ready);
+            tryInitialize();
+        } else if (port == InPorts::pixels) {
+            number = in.asInteger();
+            initialized = false;
+            send(Packet(initialized), OutPorts::ready);
+            tryInitialize();
+        } else if (port == InPorts::show) {
+            if (initialized) {
+#ifdef HAVE_ADAFRUIT_WS2801
+                ws.show();
+#endif
+            }
+        }
+    }
+private:
+    void tryInitialize() {
+        using namespace LedChainWSPorts;
+        if (initialized || number < 0 || pindata < 0 || pinclk < 0) {
+            return;
+        }
+#ifdef HAVE_ADAFRUIT_WS2801
+        ws.updateLength(number);
+        ws.updatePins(pindata, pinclk);
+        ws.begin();
+#endif
+        initialized = true;
+        send(Packet(initialized), OutPorts::ready);
+    }
+
+    void updateCurrentPixel(uint32_t rgb) {
+        using namespace LedChainWSPorts;
+        if (!initialized || currentPixelAddress <= 0
+                || currentPixelAddress >= number) {
+            return;
+        }
+#ifdef HAVE_ADAFRUIT_WS2801
+        ws.setPixelColor(currentPixelAddress, rgb);
+#endif
+        const MicroFlo::PortId p = OutPorts::pixelset;
+        send(Packet(MsgBracketStart), p);
+        send(Packet((long)currentPixelAddress));
+        send(Packet((long)rgb));
+        send(Packet(MsgBracketEnd), p);
+    }
+
+private:
+    int8_t pindata;
+    int8_t pinclk;
+    int8_t number;
+    bool initialized;
+    int currentPixelAddress; // -1 means waiting for pixel index, else waiting for value
+    Connection outPorts[2];
+#ifdef HAVE_ADAFRUIT_WS2801
+    Adafruit_WS2801 ws;
+#endif
+};
 
 
 #ifdef STELLARIS
