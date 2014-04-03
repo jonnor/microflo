@@ -3,11 +3,13 @@
   "description": "MicroFlo host functionality for browser",
   "author": "Jon Nordby <jononor@gmail.com>",
   "repo": "jonnor/microflo",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "keywords": [
     "FBP"
   ],
   "dependencies": {
+    "component/emitter": "*",
+    "the-grid/flowhub-registry": "*",
     "noflo/noflo": "*",
     "noflo/fbp": "*",
     "jonnor/buffer": "*"
@@ -19,6 +21,9 @@
     "lib/componentlib.js",
     "lib/commandstream.js",
     "lib/commandformat.js",
+    "lib/serial.js",
+    "lib/runtime.js",
+    "lib/simulator.js",
     "lib/microflo.js"
   ],
   "json": [
