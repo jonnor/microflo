@@ -18,6 +18,12 @@ const int MICROFLO_MAX_NODES = MICROFLO_NODE_LIMIT;
 const int MICROFLO_MAX_NODES = 50;
 #endif
 
+// Warning: may need to also adjust ComponentId type
+#ifdef MICROFLO_COMPONENT_LIMIT
+const int MICROFLO_MAX_COMPONENTS = MICROFLO_COMPONENT_LIMIT;
+#else
+const int MICROFLO_MAX_COMPONENTS = 50;
+#endif
 
 // Warning: may need to also adjust MessageId type
 #ifdef MICROFLO_MESSAGE_LIMIT
@@ -168,8 +174,33 @@ private:
 
 
 // Network
-
 class Component;
+
+typedef Component *(*CreateComponentFunction)(void);
+
+class ComponentLibrary {
+public:
+    // Get/set the current instance
+    //static void set(ComponentLibrary *i) { instance = i; }
+    static ComponentLibrary *get() { return instance; }
+
+public:
+    ComponentLibrary()
+        : highest(0)
+    {
+        ComponentLibrary::instance = this; // HACK
+    };
+
+    MicroFlo::ComponentId add(CreateComponentFunction func, const char * const name);
+    Component *create(MicroFlo::ComponentId id);
+
+public:
+    static ComponentLibrary *instance;
+private:
+    MicroFlo::ComponentId highest;
+    CreateComponentFunction factories[MICROFLO_MAX_COMPONENTS];
+    const char * names[MICROFLO_MAX_COMPONENTS];
+};
 
 // We only store payload and sender info, then look up target on delivery from Connection
 struct Message {
